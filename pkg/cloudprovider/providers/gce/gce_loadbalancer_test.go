@@ -32,7 +32,8 @@ func TestEnsureLoadBalancer(t *testing.T) {
 	nodes, err := createAndInsertNodes(gce, []string{"test-node-1"}, vals.ZoneName)
 	require.NoError(t, err)
 
-	status, err := gce.EnsureLoadBalancer(context.Background(), vals.ClusterName, fakeApiService, nodes)
+	apiService := fakeLbApiService()
+	status, err := gce.EnsureLoadBalancer(context.Background(), vals.ClusterName, apiService, nodes)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, status.Ingress)
 }

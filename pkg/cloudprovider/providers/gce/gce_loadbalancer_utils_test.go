@@ -54,12 +54,14 @@ func DefaultTestClusterValues() TestClusterValues {
 	}
 }
 
-var fakeApiService = &v1.Service{
-	Spec: v1.ServiceSpec{
-		SessionAffinity: v1.ServiceAffinityClientIP,
-		Type:            v1.ServiceTypeClusterIP,
-		Ports:           []v1.ServicePort{{Protocol: v1.ProtocolTCP, Port: int32(123)}},
-	},
+func fakeLbApiService() *v1.Service {
+	return &v1.Service{
+		Spec: v1.ServiceSpec{
+			SessionAffinity: v1.ServiceAffinityClientIP,
+			Type:            v1.ServiceTypeLoadBalancer,
+			Ports:           []v1.ServicePort{{Protocol: v1.ProtocolTCP, Port: int32(123)}},
+		},
+	}
 }
 
 type fakeRoundTripper struct{}
