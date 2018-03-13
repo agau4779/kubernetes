@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud/meta"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud/mock"
@@ -94,6 +95,7 @@ func fakeGCECloud(vals TestClusterValues) (*GCECloud, error) {
 		AlphaFeatureGate:   alphaFeatureGate,
 		nodeZones:          zonesWithNodes,
 		nodeInformerSynced: func() bool { return true },
+		ClusterID:          fakeClusterID(vals.ClusterID),
 	}
 
 	c := cloud.NewMockGCE(&gceProjectRouter{gce})
@@ -172,4 +174,15 @@ func createAndInsertNodes(gce *GCECloud, nodeNames []string, zoneName string) ([
 	}
 
 	return nodes, nil
+}
+
+// Stubs ClusterID so that ClusterID.getOrInitialize() does not require calling
+// gce.Initialize()
+func fakeClusterID(clusterID string) ClusterID {
+	return ClusterID{
+		clusterID: &clusterID,
+		store: cache.NewStore(func(obj interface{}) (string, error) {
+			return "", nil
+		}),
+	}
 }
