@@ -327,37 +327,7 @@ func TestEnsureInternalLoadBalancerDeleted(t *testing.T) {
 	err = gce.ensureInternalLoadBalancerDeleted(vals.ClusterName, vals.ClusterID, apiService)
 	assert.NoError(t, err)
 
-	lbName := cloudprovider.GetLoadBalancerName(apiService)
-	sharedHealthCheck := !v1_service.RequestsOnlyLocalTraffic(apiService)
-	hcName := makeHealthCheckName(lbName, vals.ClusterID, sharedHealthCheck)
-
-	// Check that Firewalls are deleted for the LoadBalancer and the HealthCheck
-	fwNames := []string{
-		MakeFirewallName(lbName),
-		MakeHealthCheckFirewallName(vals.ClusterID, hcName, true),
-	}
-
-	for _, fwName := range fwNames {
-		firewall, err := gce.GetFirewall(fwName)
-		require.Error(t, err)
-		assert.Nil(t, firewall)
-	}
-
-	// Check that Instance Group is deleted
-	igName := makeInstanceGroupName(vals.ClusterID)
-	ig, err := gce.GetInstanceGroup(igName, vals.ZoneName)
-	assert.Error(t, err)
-	assert.Nil(t, ig)
-
-	// Check that HealthCheck is deleted
-	healthcheck, err := gce.GetHealthCheck(hcName)
-	require.Error(t, err)
-	assert.Nil(t, healthcheck)
-
-	// Check forwarding rule is deleted
-	fwdRule, err := gce.GetRegionForwardingRule(lbName, gce.region)
-	require.Error(t, err)
-	assert.Nil(t, fwdRule)
+	assertInternalLbResourcesDeleted(t, gce, apiService, vals, true)
 }
 
 func TestEnsureInternalLoadBalancerDeletedTwiceDoesNotError(t *testing.T) {
@@ -375,4 +345,5 @@ func TestEnsureInternalLoadBalancerDeletedTwiceDoesNotError(t *testing.T) {
 	// Deleting the loadbalancer and resources again should not cause an error.
 	err = gce.ensureInternalLoadBalancerDeleted(vals.ClusterName, vals.ClusterID, apiService)
 	assert.NoError(t, err)
+	assertInternalLbResourcesDeleted(t, gce, apiService, vals, true)
 }

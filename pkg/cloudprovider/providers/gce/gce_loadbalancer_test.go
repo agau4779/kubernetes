@@ -59,3 +59,46 @@ func TestEnsureLoadBalancerCreatesInternalLb(t *testing.T) {
 	assert.NotEmpty(t, status.Ingress)
 	assertInternalLbResources(t, gce, apiService, vals, nodeNames)
 }
+
+func TestEnsureLoadBalancerDeletesExistingInternalLb(t *testing.T) {
+	vals := DefaultTestClusterValues()
+	gce, err := fakeGCECloud(vals)
+	require.NoError(t, err)
+
+	nodeNames := []string{"test-node-1"}
+	nodes, err := createAndInsertNodes(gce, nodeNames, vals.ZoneName)
+	require.NoError(t, err)
+
+	apiService := fakeLbApiService()
+	createInternalLoadBalancer(gce, apiService, nil, nodeNames, vals.ClusterName, vals.ClusterID, vals.ZoneName)
+
+	status, err := gce.EnsureLoadBalancer(context.Background(), vals.ClusterName, apiService, nodes)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, status.Ingress)
+
+	assertExternalLbResources(t, gce, apiService, vals, nodeNames)
+	assertInternalLbResourcesDeleted(t, gce, apiService, vals, false)
+}
+
+func TestEnsureLoadBalancerDeletesExistingExternalLb(t *testing.T) {
+	vals := DefaultTestClusterValues()
+	gce, err := fakeGCECloud(vals)
+	require.NoError(t, err)
+
+	nodeNames := []string{"test-node-1"}
+	nodes, err := createAndInsertNodes(gce, nodeNames, vals.ZoneName)
+	require.NoError(t, err)
+
+	apiService := fakeLbApiService()
+	createExternalLoadBalancer(gce, apiService, nodeNames, vals.ClusterName, vals.ClusterID, vals.ZoneName)
+
+	annotations := make(map[string]string)
+	annotations[ServiceAnnotationLoadBalancerType] = string(LBTypeInternal)
+	apiService.Annotations = annotations
+	status, err := gce.EnsureLoadBalancer(context.Background(), vals.ClusterName, apiService, nodes)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, status.Ingress)
+
+	assertInternalLbResources(t, gce, apiService, vals, nodeNames)
+	assertExternalLbResourcesDeleted(t, gce, apiService, vals, false)
+}

@@ -357,35 +357,7 @@ func TestEnsureExternalLoadBalancerDeleted(t *testing.T) {
 	err = gce.ensureExternalLoadBalancerDeleted(vals.ClusterName, vals.ClusterID, apiService)
 	assert.NoError(t, err)
 
-	lbName := cloudprovider.GetLoadBalancerName(apiService)
-	hcName := MakeNodesHealthCheckName(vals.ClusterID)
-
-	// Check that Firewalls are deleted for the LoadBalancer and the HealthCheck
-	fwNames := []string{
-		MakeFirewallName(lbName),
-		MakeHealthCheckFirewallName(vals.ClusterID, hcName, true),
-	}
-
-	for _, fwName := range fwNames {
-		firewall, err := gce.GetFirewall(fwName)
-		require.Error(t, err)
-		assert.Nil(t, firewall)
-	}
-
-	// Check that TargetPool is deleted
-	pool, err := gce.GetTargetPool(lbName, gce.region)
-	require.Error(t, err)
-	assert.Nil(t, pool)
-
-	// Check that HealthCheck is deleted
-	healthcheck, err := gce.GetHttpHealthCheck(hcName)
-	require.Error(t, err)
-	assert.Nil(t, healthcheck)
-
-	// Check forwarding rule is deleted
-	fwdRule, err := gce.GetRegionForwardingRule(lbName, gce.region)
-	require.Error(t, err)
-	assert.Nil(t, fwdRule)
+	assertExternalLbResourcesDeleted(t, gce, apiService, vals, true)
 }
 
 func TestLoadBalancerWrongTierResourceDeletion(t *testing.T) {

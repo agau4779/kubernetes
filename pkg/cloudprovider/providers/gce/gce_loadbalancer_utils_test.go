@@ -231,6 +231,41 @@ func assertExternalLbResources(t *testing.T, gce *GCECloud, apiService *v1.Servi
 	assert.Equal(t, "123-123", fwdRule.PortRange)
 }
 
+func assertExternalLbResourcesDeleted(t *testing.T, gce *GCECloud, apiService *v1.Service, vals TestClusterValues, firewallsDeleted bool) {
+	lbName := cloudprovider.GetLoadBalancerName(apiService)
+	hcName := MakeNodesHealthCheckName(vals.ClusterID)
+
+	if firewallsDeleted {
+		// Check that Firewalls are deleted for the LoadBalancer and the HealthCheck
+		fwNames := []string{
+			MakeFirewallName(lbName),
+			MakeHealthCheckFirewallName(vals.ClusterID, hcName, true),
+		}
+
+		for _, fwName := range fwNames {
+			firewall, err := gce.GetFirewall(fwName)
+			require.Error(t, err)
+			assert.Nil(t, firewall)
+		}
+
+		// Check forwarding rule is deleted
+		fwdRule, err := gce.GetRegionForwardingRule(lbName, gce.region)
+		require.Error(t, err)
+		assert.Nil(t, fwdRule)
+	}
+
+	// Check that TargetPool is deleted
+	pool, err := gce.GetTargetPool(lbName, gce.region)
+	require.Error(t, err)
+	assert.Nil(t, pool)
+
+	// Check that HealthCheck is deleted
+	healthcheck, err := gce.GetHttpHealthCheck(hcName)
+	require.Error(t, err)
+	assert.Nil(t, healthcheck)
+
+}
+
 func assertInternalLbResources(t *testing.T, gce *GCECloud, apiService *v1.Service, vals TestClusterValues, nodeNames []string) {
 	lbName := cloudprovider.GetLoadBalancerName(apiService)
 
@@ -282,4 +317,42 @@ func assertInternalLbResources(t *testing.T, gce *GCECloud, apiService *v1.Servi
 	assert.Equal(t, backendServiceLink, fwdRule.BackendService)
 	// if no Subnetwork specified, defaults to the GCE NetworkURL
 	assert.Equal(t, gce.NetworkURL(), fwdRule.Subnetwork)
+}
+
+func assertInternalLbResourcesDeleted(t *testing.T, gce *GCECloud, apiService *v1.Service, vals TestClusterValues, firewallsDeleted bool) {
+	lbName := cloudprovider.GetLoadBalancerName(apiService)
+	sharedHealthCheck := !v1_service.RequestsOnlyLocalTraffic(apiService)
+	hcName := makeHealthCheckName(lbName, vals.ClusterID, sharedHealthCheck)
+
+	// ensureExternalLoadBalancer and ensureInternalLoadBalancer both create
+	// Firewalls with the same name.
+	if firewallsDeleted {
+		// Check that Firewalls are deleted for the LoadBalancer and the HealthCheck
+		fwNames := []string{
+			MakeFirewallName(lbName),
+			MakeHealthCheckFirewallName(vals.ClusterID, hcName, true),
+		}
+
+		for _, fwName := range fwNames {
+			firewall, err := gce.GetFirewall(fwName)
+			require.Error(t, err)
+			assert.Nil(t, firewall)
+		}
+
+		// Check forwarding rule is deleted
+		fwdRule, err := gce.GetRegionForwardingRule(lbName, gce.region)
+		require.Error(t, err)
+		assert.Nil(t, fwdRule)
+	}
+
+	// Check that Instance Group is deleted
+	igName := makeInstanceGroupName(vals.ClusterID)
+	ig, err := gce.GetInstanceGroup(igName, vals.ZoneName)
+	assert.Error(t, err)
+	assert.Nil(t, ig)
+
+	// Check that HealthCheck is deleted
+	healthcheck, err := gce.GetHealthCheck(hcName)
+	require.Error(t, err)
+	assert.Nil(t, healthcheck)
 }
