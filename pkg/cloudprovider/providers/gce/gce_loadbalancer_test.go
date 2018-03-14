@@ -24,16 +24,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEnsureLoadBalancer(t *testing.T) {
+func TestEnsureLoadBalancerCreatesExternalLb(t *testing.T) {
 	vals := DefaultTestClusterValues()
 	gce, err := fakeGCECloud(vals)
 	require.NoError(t, err)
 
-	nodes, err := createAndInsertNodes(gce, []string{"test-node-1"}, vals.ZoneName)
+	nodeNames := []string{"test-node-1"}
+	nodes, err := createAndInsertNodes(gce, nodeNames, vals.ZoneName)
 	require.NoError(t, err)
 
 	apiService := fakeLbApiService()
 	status, err := gce.EnsureLoadBalancer(context.Background(), vals.ClusterName, apiService, nodes)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, status.Ingress)
+	assertExternalLbResources(t, gce, apiService, vals, nodeNames)
+}
+
+func TestEnsureLoadBalancerCreatesInternalLb(t *testing.T) {
+	vals := DefaultTestClusterValues()
+	gce, err := fakeGCECloud(vals)
+	require.NoError(t, err)
+
+	nodeNames := []string{"test-node-1"}
+	nodes, err := createAndInsertNodes(gce, nodeNames, vals.ZoneName)
+	require.NoError(t, err)
+
+	apiService := fakeLbApiService()
+	annotations := make(map[string]string)
+	annotations[ServiceAnnotationLoadBalancerType] = string(LBTypeInternal)
+	apiService.Annotations = annotations
+
+	status, err := gce.EnsureLoadBalancer(context.Background(), vals.ClusterName, apiService, nodes)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, status.Ingress)
+	assertInternalLbResources(t, gce, apiService, vals, nodeNames)
 }

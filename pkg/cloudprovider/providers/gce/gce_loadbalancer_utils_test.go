@@ -24,12 +24,17 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	compute "google.golang.org/api/compute/v1"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+	v1_service "k8s.io/kubernetes/pkg/api/v1/service"
+	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud/meta"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud/mock"
@@ -187,4 +192,94 @@ func fakeClusterID(clusterID string) ClusterID {
 			return "", nil
 		}),
 	}
+}
+
+func assertExternalLbResources(t *testing.T, gce *GCECloud, apiService *v1.Service, vals TestClusterValues, nodeNames []string) {
+	lbName := cloudprovider.GetLoadBalancerName(apiService)
+	hcName := MakeNodesHealthCheckName(vals.ClusterID)
+
+	// Check that Firewalls are created for the LoadBalancer and the HealthCheck
+	fwNames := []string{
+		MakeFirewallName(lbName),
+		MakeHealthCheckFirewallName(vals.ClusterID, hcName, true),
+	}
+
+	for _, fwName := range fwNames {
+		firewall, err := gce.GetFirewall(fwName)
+		require.NoError(t, err)
+		assert.Equal(t, nodeNames, firewall.TargetTags)
+		assert.NotEmpty(t, firewall.SourceRanges)
+	}
+
+	// Check that TargetPool is Created
+	pool, err := gce.GetTargetPool(lbName, gce.region)
+	require.NoError(t, err)
+	assert.Equal(t, lbName, pool.Name)
+	assert.NotEmpty(t, pool.HealthChecks)
+	assert.Equal(t, 1, len(pool.Instances))
+
+	// Check that HealthCheck is created
+	healthcheck, err := gce.GetHttpHealthCheck(hcName)
+	require.NoError(t, err)
+	assert.Equal(t, hcName, healthcheck.Name)
+
+	// Check that ForwardingRule is created
+	fwdRule, err := gce.GetRegionForwardingRule(lbName, gce.region)
+	require.NoError(t, err)
+	assert.Equal(t, lbName, fwdRule.Name)
+	assert.Equal(t, "TCP", fwdRule.IPProtocol)
+	assert.Equal(t, "123-123", fwdRule.PortRange)
+}
+
+func assertInternalLbResources(t *testing.T, gce *GCECloud, apiService *v1.Service, vals TestClusterValues, nodeNames []string) {
+	lbName := cloudprovider.GetLoadBalancerName(apiService)
+
+	// Check that Instance Group is created
+	igName := makeInstanceGroupName(vals.ClusterID)
+	ig, err := gce.GetInstanceGroup(igName, vals.ZoneName)
+	assert.NoError(t, err)
+	assert.Equal(t, igName, ig.Name)
+
+	// Check that Firewalls are created for the LoadBalancer and the HealthCheck
+	fwNames := []string{
+		lbName,
+		makeHealthCheckFirewallName(lbName, vals.ClusterID, true),
+	}
+
+	for _, fwName := range fwNames {
+		firewall, err := gce.GetFirewall(fwName)
+		require.NoError(t, err)
+		assert.Equal(t, nodeNames, firewall.TargetTags)
+		assert.NotEmpty(t, firewall.SourceRanges)
+	}
+
+	// Check that HealthCheck is created
+	sharedHealthCheck := !v1_service.RequestsOnlyLocalTraffic(apiService)
+	hcName := makeHealthCheckName(lbName, vals.ClusterID, sharedHealthCheck)
+	healthcheck, err := gce.GetHealthCheck(hcName)
+	require.NoError(t, err)
+	assert.Equal(t, hcName, healthcheck.Name)
+
+	// Check that BackendService exists
+	sharedBackend := shareBackendService(apiService)
+	backendServiceName := makeBackendServiceName(lbName, vals.ClusterID, sharedBackend, cloud.SchemeInternal, "TCP", apiService.Spec.SessionAffinity)
+	backendServiceLink := gce.getBackendServiceLink(backendServiceName)
+
+	bs, err := gce.GetRegionBackendService(backendServiceName, gce.region)
+	require.NoError(t, err)
+	assert.Equal(t, "TCP", bs.Protocol)
+	assert.Equal(
+		t,
+		[]string{healthcheck.SelfLink},
+		bs.HealthChecks,
+	)
+
+	// Check that ForwardingRule is created
+	fwdRule, err := gce.GetRegionForwardingRule(lbName, gce.region)
+	require.NoError(t, err)
+	assert.Equal(t, lbName, fwdRule.Name)
+	assert.Equal(t, "TCP", fwdRule.IPProtocol)
+	assert.Equal(t, backendServiceLink, fwdRule.BackendService)
+	// if no Subnetwork specified, defaults to the GCE NetworkURL
+	assert.Equal(t, gce.NetworkURL(), fwdRule.Subnetwork)
 }

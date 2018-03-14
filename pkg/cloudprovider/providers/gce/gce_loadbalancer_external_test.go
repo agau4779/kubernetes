@@ -276,50 +276,17 @@ func createExternalLoadBalancer(gce *GCECloud, apiService *v1.Service, nodeNames
 
 func TestEnsureExternalLoadBalancer(t *testing.T) {
 	vals := DefaultTestClusterValues()
-	nodeName := "test-node-1"
+	nodeNames := []string{"test-node-1"}
 
 	gce, err := fakeGCECloud(vals)
 	require.NoError(t, err)
 
 	apiService := fakeLbApiService()
-	status, err := createExternalLoadBalancer(gce, apiService, []string{nodeName}, vals.ClusterName, vals.ClusterID, vals.ZoneName)
+	status, err := createExternalLoadBalancer(gce, apiService, nodeNames, vals.ClusterName, vals.ClusterID, vals.ZoneName)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, status.Ingress)
 
-	lbName := cloudprovider.GetLoadBalancerName(apiService)
-	hcName := MakeNodesHealthCheckName(vals.ClusterID)
-
-	// Check that Firewalls are created for the LoadBalancer and the HealthCheck
-	fwNames := []string{
-		MakeFirewallName(lbName),
-		MakeHealthCheckFirewallName(vals.ClusterID, hcName, true),
-	}
-
-	for _, fwName := range fwNames {
-		firewall, err := gce.GetFirewall(fwName)
-		require.NoError(t, err)
-		assert.Equal(t, []string{nodeName}, firewall.TargetTags)
-		assert.NotEmpty(t, firewall.SourceRanges)
-	}
-
-	// Check that TargetPool is Created
-	pool, err := gce.GetTargetPool(lbName, gce.region)
-	require.NoError(t, err)
-	assert.Equal(t, lbName, pool.Name)
-	assert.NotEmpty(t, pool.HealthChecks)
-	assert.Equal(t, 1, len(pool.Instances))
-
-	// Check that HealthCheck is created
-	healthcheck, err := gce.GetHttpHealthCheck(hcName)
-	require.NoError(t, err)
-	assert.Equal(t, hcName, healthcheck.Name)
-
-	// Check that ForwardingRule is created
-	fwdRule, err := gce.GetRegionForwardingRule(lbName, gce.region)
-	require.NoError(t, err)
-	assert.Equal(t, lbName, fwdRule.Name)
-	assert.Equal(t, "TCP", fwdRule.IPProtocol)
-	assert.Equal(t, "123-123", fwdRule.PortRange)
+	assertExternalLbResources(t, gce, apiService, vals, nodeNames)
 }
 
 func TestUpdateExternalLoadBalancer(t *testing.T) {

@@ -111,66 +111,16 @@ func TestEnsureInternalBackendServiceGroups(t *testing.T) {
 
 func TestEnsureInternalLoadBalancer(t *testing.T) {
 	vals := DefaultTestClusterValues()
-	nodeName := "test-node-1"
+	nodeNames := []string{"test-node-1"}
 
 	gce, err := fakeGCECloud(vals)
 	require.NoError(t, err)
 
 	apiService := fakeLbApiService()
-	status, err := createInternalLoadBalancer(gce, apiService, nil, []string{nodeName}, vals.ClusterName, vals.ClusterID, vals.ZoneName)
+	status, err := createInternalLoadBalancer(gce, apiService, nil, nodeNames, vals.ClusterName, vals.ClusterID, vals.ZoneName)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, status.Ingress)
-
-	lbName := cloudprovider.GetLoadBalancerName(apiService)
-
-	// Check that Instance Group is created
-	igName := makeInstanceGroupName(vals.ClusterID)
-	ig, err := gce.GetInstanceGroup(igName, vals.ZoneName)
-	assert.NoError(t, err)
-	assert.Equal(t, igName, ig.Name)
-
-	// Check that Firewalls are created for the LoadBalancer and the HealthCheck
-	fwNames := []string{
-		lbName,
-		makeHealthCheckFirewallName(lbName, vals.ClusterID, true),
-	}
-
-	for _, fwName := range fwNames {
-		firewall, err := gce.GetFirewall(fwName)
-		require.NoError(t, err)
-		assert.Equal(t, []string{nodeName}, firewall.TargetTags)
-		assert.NotEmpty(t, firewall.SourceRanges)
-	}
-
-	// Check that HealthCheck is created
-	sharedHealthCheck := !v1_service.RequestsOnlyLocalTraffic(apiService)
-	hcName := makeHealthCheckName(lbName, vals.ClusterID, sharedHealthCheck)
-	healthcheck, err := gce.GetHealthCheck(hcName)
-	require.NoError(t, err)
-	assert.Equal(t, hcName, healthcheck.Name)
-
-	// Check that BackendService exists
-	sharedBackend := shareBackendService(apiService)
-	backendServiceName := makeBackendServiceName(lbName, vals.ClusterID, sharedBackend, cloud.SchemeInternal, "TCP", apiService.Spec.SessionAffinity)
-	backendServiceLink := gce.getBackendServiceLink(backendServiceName)
-
-	bs, err := gce.GetRegionBackendService(backendServiceName, gce.region)
-	require.NoError(t, err)
-	assert.Equal(t, "TCP", bs.Protocol)
-	assert.Equal(
-		t,
-		[]string{healthcheck.SelfLink},
-		bs.HealthChecks,
-	)
-
-	// Check that ForwardingRule is created
-	fwdRule, err := gce.GetRegionForwardingRule(lbName, gce.region)
-	require.NoError(t, err)
-	assert.Equal(t, lbName, fwdRule.Name)
-	assert.Equal(t, "TCP", fwdRule.IPProtocol)
-	assert.Equal(t, backendServiceLink, fwdRule.BackendService)
-	// if no Subnetwork specified, defaults to the GCE NetworkURL
-	assert.Equal(t, gce.NetworkURL(), fwdRule.Subnetwork)
+	assertInternalLbResources(t, gce, apiService, vals, nodeNames)
 }
 
 func TestEnsureInternalLoadBalancerWithExistingResources(t *testing.T) {
