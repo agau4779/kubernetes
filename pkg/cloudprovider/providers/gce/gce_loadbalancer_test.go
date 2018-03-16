@@ -24,6 +24,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGetLoadBalancer(t *testing.T) {
+	vals := DefaultTestClusterValues()
+	gce, err := fakeGCECloud(vals)
+	require.NoError(t, err)
+
+	apiService := fakeLbApiService()
+
+	// When a loadbalancer has not been created
+	status, found, err := gce.GetLoadBalancer(context.Background(), vals.ClusterName, apiService)
+	assert.Nil(t, status)
+	assert.False(t, found)
+	assert.Nil(t, err)
+
+	nodeNames := []string{"test-node-1"}
+	nodes, err := createAndInsertNodes(gce, nodeNames, vals.ZoneName)
+	require.NoError(t, err)
+	expectedStatus, err := gce.EnsureLoadBalancer(context.Background(), vals.ClusterName, apiService, nodes)
+	require.NoError(t, err)
+
+	status, found, err = gce.GetLoadBalancer(context.Background(), vals.ClusterName, apiService)
+	assert.Equal(t, expectedStatus, status)
+	assert.True(t, found)
+	assert.Nil(t, err)
+}
+
 func TestEnsureLoadBalancerCreatesExternalLb(t *testing.T) {
 	vals := DefaultTestClusterValues()
 	gce, err := fakeGCECloud(vals)
