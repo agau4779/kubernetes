@@ -333,7 +333,7 @@ var _ = SIGDescribe("Kubectl client", func() {
 		/*
 			Release : v1.9
 			Testname: Kubectl, guestbook application
-			Description: Create Guestbook application that contains redis server, 2 instances of redis slave, frontend application, frontend service and redis master service and redis slave service. Using frontend service test will write a entry into the guestbook application which will store the entry into the backend redis database. Applcaition flow MUST work as expects and the data written MUST be available to read.
+			Description: Create Guestbook application that contains redis server, 2 instances of redis slave, frontend application, frontend service and redis master service and redis slave service. Using frontend service, the test will write an entry into the guestbook application which will store the entry into the backend redis database. Application flow MUST work as expected and the data written MUST be available to read.
 		*/
 		framework.ConformanceIt("should create and stop a working application ", func() {
 			defer forEachGBFile(func(contents string) {
@@ -806,7 +806,7 @@ metadata:
 			// Can't check exact strings due to terminal control commands (colors)
 			requiredItems := []string{"Kubernetes master", "is running at"}
 			if framework.ProviderIs("gce", "gke") {
-				requiredItems = append(requiredItems, "KubeDNS", "Heapster")
+				requiredItems = append(requiredItems, "Heapster")
 			}
 			for _, item := range requiredItems {
 				if !strings.Contains(output, item) {

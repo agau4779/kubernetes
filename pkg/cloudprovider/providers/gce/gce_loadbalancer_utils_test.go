@@ -23,6 +23,7 @@ package gce
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"testing"
 
@@ -39,6 +40,16 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud/meta"
 	"k8s.io/kubernetes/pkg/cloudprovider/providers/gce/cloud/mock"
 	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
+)
+
+// TODO(yankaiz): Create shared error types for both test/non-test codes.
+const (
+	eventReasonManualChange = "LoadBalancerManualChange"
+	eventMsgFirewallChange  = "Firewall change required by network admin"
+	errPrefixGetTargetPool  = "error getting load balancer's target pool:"
+	errStrLbNoHosts         = "Cannot EnsureLoadBalancer() with no hosts"
+	wrongTier               = "SupremeLuxury"
+	errStrUnsupportedTier   = "unsupported network tier: \"" + wrongTier + "\""
 )
 
 type TestClusterValues struct {
@@ -59,11 +70,14 @@ func DefaultTestClusterValues() TestClusterValues {
 	}
 }
 
+var fakeApiService *v1.Service
+
 func fakeLbApiService() *v1.Service {
 	return &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: ""},
 		Spec: v1.ServiceSpec{
 			SessionAffinity: v1.ServiceAffinityClientIP,
-			Type:            v1.ServiceTypeLoadBalancer,
+			Type:            v1.ServiceTypeClusterIP,
 			Ports:           []v1.ServicePort{{Protocol: v1.ProtocolTCP, Port: int32(123)}},
 		},
 	}
@@ -87,7 +101,7 @@ func fakeGCECloud(vals TestClusterValues) (*GCECloud, error) {
 	fakeManager := newFakeManager(vals.ProjectID, vals.Region)
 	zonesWithNodes := createNodeZones([]string{vals.ZoneName})
 
-	alphaFeatureGate, err := NewAlphaFeatureGate([]string{})
+	alphaFeatureGate := NewAlphaFeatureGate([]string{})
 	if err != nil {
 		return nil, err
 	}
@@ -355,4 +369,20 @@ func assertInternalLbResourcesDeleted(t *testing.T, gce *GCECloud, apiService *v
 	healthcheck, err := gce.GetHealthCheck(hcName)
 	require.Error(t, err)
 	assert.Nil(t, healthcheck)
+}
+
+func setup() {
+	fakeApiService = &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: ""},
+		Spec: v1.ServiceSpec{
+			SessionAffinity: v1.ServiceAffinityClientIP,
+			Type:            v1.ServiceTypeClusterIP,
+			Ports:           []v1.ServicePort{{Protocol: v1.ProtocolTCP, Port: int32(123)}},
+		},
+	}
+}
+
+func TestMain(m *testing.M) {
+	setup()
+	os.Exit(m.Run())
 }

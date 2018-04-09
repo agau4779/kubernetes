@@ -59,8 +59,8 @@ var (
 		# Create a pod based on the JSON passed into stdin.
 		cat pod.json | kubectl create -f -
 
-		# Edit the data in docker-registry.yaml in JSON using the v1 API format then create the resource using the edited data.
-		kubectl create -f docker-registry.yaml --edit --output-version=v1 -o json`))
+		# Edit the data in docker-registry.yaml in JSON then create the resource using the edited data.
+		kubectl create -f docker-registry.yaml --edit -o json`))
 )
 
 func NewCmdCreate(f cmdutil.Factory, out, errOut io.Writer) *cobra.Command {
@@ -315,34 +315,34 @@ func RunCreateSubcommand(f cmdutil.Factory, cmd *cobra.Command, out io.Writer, o
 		return err
 	}
 	mapper, typer := f.Object()
-	gvks, _, err := typer.ObjectKinds(obj)
-	if err != nil {
-		return err
-	}
-	gvk := gvks[0]
-	mapping, err := mapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
-	if err != nil {
-		return err
-	}
-	client, err := f.ClientForMapping(mapping)
-	if err != nil {
-		return err
-	}
-	resourceMapper := &resource.Mapper{
-		ObjectTyper:  typer,
-		RESTMapper:   mapper,
-		ClientMapper: resource.ClientMapperFunc(f.ClientForMapping),
-	}
-	info, err := resourceMapper.InfoForObject(obj, nil)
-	if err != nil {
-		return err
-	}
-	if err := kubectl.CreateOrUpdateAnnotation(cmdutil.GetFlagBool(cmd, cmdutil.ApplyAnnotationsFlag), info, cmdutil.InternalVersionJSONEncoder()); err != nil {
-		return err
-	}
-	obj = info.Object
-
 	if !options.DryRun {
+		gvks, _, err := typer.ObjectKinds(obj)
+		if err != nil {
+			return err
+		}
+		gvk := gvks[0]
+		mapping, err := mapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
+		if err != nil {
+			return err
+		}
+		client, err := f.ClientForMapping(mapping)
+		if err != nil {
+			return err
+		}
+		resourceMapper := &resource.Mapper{
+			ObjectTyper:  typer,
+			RESTMapper:   mapper,
+			ClientMapper: resource.ClientMapperFunc(f.ClientForMapping),
+		}
+		info, err := resourceMapper.InfoForObject(obj, nil)
+		if err != nil {
+			return err
+		}
+		if err := kubectl.CreateOrUpdateAnnotation(cmdutil.GetFlagBool(cmd, cmdutil.ApplyAnnotationsFlag), info, cmdutil.InternalVersionJSONEncoder()); err != nil {
+			return err
+		}
+		obj = info.Object
+
 		obj, err = resource.NewHelper(client, mapping).Create(namespace, false, info.Object)
 		if err != nil {
 			return err
@@ -354,7 +354,7 @@ func RunCreateSubcommand(f cmdutil.Factory, cmd *cobra.Command, out io.Writer, o
 	}
 
 	if useShortOutput := options.OutputFormat == "name"; useShortOutput || len(options.OutputFormat) == 0 {
-		cmdutil.PrintSuccess(useShortOutput, out, info.Object, options.DryRun, "created")
+		cmdutil.PrintSuccess(useShortOutput, out, obj, options.DryRun, "created")
 		return nil
 	}
 
