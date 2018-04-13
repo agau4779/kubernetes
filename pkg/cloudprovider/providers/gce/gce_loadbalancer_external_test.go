@@ -433,6 +433,7 @@ func TestEnsureExternalLoadBalancerFailsIfInvalidNetworkTier(t *testing.T) {
 
 	// Enable the cloud.NetworkTiers feature
 	gce.AlphaFeatureGate.features[AlphaFeatureNetworkTiers] = true
+	fakeApiService := fakeLbApiService()
 	fakeApiService.Annotations = map[string]string{NetworkTierAnnotationKey: wrongTier}
 
 	_, err = gce.ensureExternalLoadBalancer(vals.ClusterName, vals.ClusterID, fakeApiService, nil, nodes)
@@ -445,6 +446,7 @@ func TestEnsureExternalLoadBalancerFailsWithNoNodes(t *testing.T) {
 	gce, err := fakeGCECloud(DefaultTestClusterValues())
 	require.NoError(t, err)
 
+	fakeApiService := fakeLbApiService()
 	_, err = gce.ensureExternalLoadBalancer(vals.ClusterName, vals.ClusterID, fakeApiService, nil, []*v1.Node{})
 	require.Error(t, err)
 	assert.EqualError(t, err, errStrLbNoHosts)
@@ -458,6 +460,7 @@ func TestForwardingRuleNeedsUpdate(t *testing.T) {
 	require.NotNil(t, status)
 	require.NoError(t, err)
 
+	fakeApiService := fakeLbApiService()
 	lbName := cloudprovider.GetLoadBalancerName(fakeApiService)
 	ipAddr := status.Ingress[0].IP
 
@@ -536,6 +539,7 @@ func TestTargetPoolNeedsRecreation(t *testing.T) {
 	gce, err := fakeGCECloud(DefaultTestClusterValues())
 	require.NoError(t, err)
 
+	fakeApiService := fakeLbApiService()
 	serviceName := fakeApiService.ObjectMeta.Name
 	lbName := cloudprovider.GetLoadBalancerName(fakeApiService)
 	nodes, err := createAndInsertNodes(gce, []string{"test-node-1"}, vals.ZoneName)
@@ -580,7 +584,8 @@ func TestFirewallNeedsUpdate(t *testing.T) {
 	vals := DefaultTestClusterValues()
 	gce, err := fakeGCECloud(DefaultTestClusterValues())
 	require.NoError(t, err)
-	status, err := createExternalLoadBalancer(gce, fakeLbApiService(), []string{"test-node-1"}, vals.ClusterName, vals.ClusterID, vals.ZoneName)
+	fakeApiService := fakeLbApiService()
+	status, err := createExternalLoadBalancer(gce, fakeApiService, []string{"test-node-1"}, vals.ClusterName, vals.ClusterID, vals.ZoneName)
 	require.NotNil(t, status)
 	require.NoError(t, err)
 	svcName := "/" + fakeApiService.ObjectMeta.Name
@@ -752,6 +757,7 @@ func TestEnsureTargetPoolAndHealthCheck(t *testing.T) {
 
 	nodes, err := createAndInsertNodes(gce, []string{"test-node-1"}, vals.ZoneName)
 	require.NoError(t, err)
+	fakeApiService := fakeLbApiService()
 	status, err := gce.ensureExternalLoadBalancer(
 		vals.ClusterName,
 		vals.ClusterID,
@@ -840,6 +846,7 @@ func TestCreateAndUpdateFirewallSucceedsOnXPN(t *testing.T) {
 	recorder := record.NewFakeRecorder(1024)
 	gce.eventRecorder = recorder
 
+	fakeApiService := fakeLbApiService()
 	nodes, err := createAndInsertNodes(gce, []string{"test-node-1"}, vals.ZoneName)
 	require.NoError(t, err)
 	hostNames := nodeNames(nodes)
@@ -890,6 +897,7 @@ func TestEnsureExternalLoadBalancerDeletedSucceedsOnXPN(t *testing.T) {
 	recorder := record.NewFakeRecorder(1024)
 	gce.eventRecorder = recorder
 
+	fakeApiService := fakeLbApiService()
 	err = gce.ensureExternalLoadBalancerDeleted(vals.ClusterName, vals.ClusterID, fakeApiService)
 	require.NoError(t, err)
 
@@ -906,12 +914,12 @@ type EnsureELBParams struct {
 }
 
 // newEnsureELBParams is the constructor of EnsureELBParams.
-func newEnsureELBParams(nodes []*v1.Node) *EnsureELBParams {
+func newEnsureELBParams(nodes []*v1.Node, fakeApiService *v1.Service) *EnsureELBParams {
 	vals := DefaultTestClusterValues()
 	return &EnsureELBParams{
 		vals.ClusterName,
 		vals.ClusterID,
-		fakeApiService.DeepCopy(),
+		fakeApiService,
 		nil,
 		nodes,
 	}
@@ -988,7 +996,8 @@ func TestEnsureExternalLoadBalancerErrors(t *testing.T) {
 			gce, err := fakeGCECloud(DefaultTestClusterValues())
 			nodes, err := createAndInsertNodes(gce, []string{"test-node-1"}, vals.ZoneName)
 			require.NoError(t, err)
-			params = newEnsureELBParams(nodes)
+			fakeApiService := fakeLbApiService()
+			params = newEnsureELBParams(nodes, fakeApiService)
 			if tc.adjustParams != nil {
 				tc.adjustParams(params)
 			}

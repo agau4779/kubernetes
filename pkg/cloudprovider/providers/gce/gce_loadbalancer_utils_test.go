@@ -23,7 +23,6 @@ package gce
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 	"testing"
 
@@ -70,14 +69,12 @@ func DefaultTestClusterValues() TestClusterValues {
 	}
 }
 
-var fakeApiService *v1.Service
-
 func fakeLbApiService() *v1.Service {
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: ""},
 		Spec: v1.ServiceSpec{
 			SessionAffinity: v1.ServiceAffinityClientIP,
-			Type:            v1.ServiceTypeClusterIP,
+			Type:            v1.ServiceTypeLoadBalancer,
 			Ports:           []v1.ServicePort{{Protocol: v1.ProtocolTCP, Port: int32(123)}},
 		},
 	}
@@ -369,20 +366,4 @@ func assertInternalLbResourcesDeleted(t *testing.T, gce *GCECloud, apiService *v
 	healthcheck, err := gce.GetHealthCheck(hcName)
 	require.Error(t, err)
 	assert.Nil(t, healthcheck)
-}
-
-func setup() {
-	fakeApiService = &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: ""},
-		Spec: v1.ServiceSpec{
-			SessionAffinity: v1.ServiceAffinityClientIP,
-			Type:            v1.ServiceTypeClusterIP,
-			Ports:           []v1.ServicePort{{Protocol: v1.ProtocolTCP, Port: int32(123)}},
-		},
-	}
-}
-
-func TestMain(m *testing.M) {
-	setup()
-	os.Exit(m.Run())
 }
