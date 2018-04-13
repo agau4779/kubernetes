@@ -311,6 +311,42 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 			executeBacksideBacksideHTTPSTest(f, jig, "")
 		})
 
+		It("should support multiple TLS certs", func() {
+			By("Creating an ingress with no certs.")
+			jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "multiple-certs"), ns, map[string]string{
+				framework.IngressStaticIPKey: ns,
+			}, map[string]string{})
+
+			By("Adding multiple certs to the ingress.")
+			hosts := []string{"test1.ingress.com", "test2.ingress.com", "test3.ingress.com", "test4.ingress.com"}
+			secrets := []string{"tls-secret-1", "tls-secret-2", "tls-secret-3", "tls-secret-4"}
+			certs := [][]byte{}
+			for i, host := range hosts {
+				jig.AddHTTPS(secrets[i], host)
+				certs = append(certs, jig.GetRootCA(secrets[i]))
+			}
+			for i, host := range hosts {
+				err := jig.WaitForIngressWithCert(true, []string{host}, certs[i])
+				Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("Unexpected error while waiting for ingress: %v", err))
+			}
+
+			By("Remove all but one of the certs on the ingress.")
+			jig.RemoveHTTPS(secrets[1])
+			jig.RemoveHTTPS(secrets[2])
+			jig.RemoveHTTPS(secrets[3])
+
+			By("Test that the remaining cert is properly served.")
+			err := jig.WaitForIngressWithCert(true, []string{hosts[0]}, certs[0])
+			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("Unexpected error while waiting for ingress: %v", err))
+
+			By("Add back one of the certs that was removed and check that all certs are served.")
+			jig.AddHTTPS(secrets[1], hosts[1])
+			for i, host := range hosts[:2] {
+				err := jig.WaitForIngressWithCert(true, []string{host}, certs[i])
+				Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("Unexpected error while waiting for ingress: %v", err))
+			}
+		})
+
 		It("multicluster ingress should get instance group annotation", func() {
 			name := "echomap"
 			jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "http"), ns, map[string]string{
@@ -382,8 +418,7 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 			// TODO(nikhiljindal): Check the instance group annotation value and verify with a multizone cluster.
 		})
 
-		// TODO (gau): Remove [Unreleased] label once HTTP2 is in the next Ingress release
-		It("should be able to switch between HTTPS and HTTP2 modes [Unreleased]", func() {
+		It("should be able to switch between HTTPS and HTTP2 modes", func() {
 			httpsScheme := "request_scheme=https"
 
 			By("Create a basic HTTP2 ingress")
@@ -677,9 +712,15 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 			// Validate that removing the ingress from all clusters throws an error.
 			// Reuse the ingress file created while creating the ingress.
 			filePath := filepath.Join(framework.TestContext.OutputDir, "mci.yaml")
-			if _, err := framework.RunKubemciWithKubeconfig("remove-clusters", name, "--ingress="+filePath); err == nil {
-				framework.Failf("expected non-nil error in running kubemci remove-clusters to remove from all clusters")
+			output, err := framework.RunKubemciWithKubeconfig("remove-clusters", name, "--ingress="+filePath)
+			if err != nil {
+				framework.Failf("unexpected error in running kubemci remove-clusters command to remove from all clusters: %s", err)
 			}
+			if !strings.Contains(output, "You should use kubemci delete to delete the ingress completely") {
+				framework.Failf("unexpected output in removing an ingress from all clusters, expected the output to include: You should use kubemci delete to delete the ingress completely, actual output: %s", output)
+			}
+			// Verify that the ingress is still spread to 1 cluster as expected.
+			verifyKubemciStatusHas(name, "is spread across 1 cluster")
 			// remove-clusters should succeed with --force=true
 			if _, err := framework.RunKubemciWithKubeconfig("remove-clusters", name, "--ingress="+filePath, "--force=true"); err != nil {
 				framework.Failf("unexpected error in running kubemci remove-clusters to remove from all clusters with --force=true: %s", err)

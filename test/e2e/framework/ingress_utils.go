@@ -183,7 +183,7 @@ func CreateIngressComformanceTests(jig *IngressTestJig, ns string, annotations m
 		},
 		{
 			fmt.Sprintf("should terminate TLS for host %v", tlsHost),
-			func() { jig.AddHTTPS(tlsSecretName, tlsHost) },
+			func() { jig.SetHTTPS(tlsSecretName, tlsHost) },
 			fmt.Sprintf("waiting for HTTPS updates to reflect in ingress"),
 		},
 		{
@@ -241,7 +241,7 @@ func CreateIngressComformanceTests(jig *IngressTestJig, ns string, annotations m
 					}
 					ing.Spec.Rules = newRules
 				})
-				jig.AddHTTPS(tlsSecretName, updatedTLSHost)
+				jig.SetHTTPS(tlsSecretName, updatedTLSHost)
 			},
 			fmt.Sprintf("Waiting for updated certificates to accept requests for host %v", updatedTLSHost),
 		})
@@ -1211,18 +1211,44 @@ func (j *IngressTestJig) Update(update func(ing *extensions.Ingress)) {
 	Failf("too many retries updating ingress %s/%s", ns, name)
 }
 
-// AddHTTPS updates the ingress to use this secret for these hosts.
+// AddHTTPS updates the ingress to add this secret for these hosts.
 func (j *IngressTestJig) AddHTTPS(secretName string, hosts ...string) {
-	j.Ingress.Spec.TLS = []extensions.IngressTLS{{Hosts: hosts, SecretName: secretName}}
 	// TODO: Just create the secret in GetRootCAs once we're watching secrets in
 	// the ingress controller.
 	_, cert, _, err := createTLSSecret(j.Client, j.Ingress.Namespace, secretName, hosts...)
 	ExpectNoError(err)
-	j.Logger.Infof("Updating ingress %v to use secret %v for TLS termination", j.Ingress.Name, secretName)
+	j.Logger.Infof("Updating ingress %v to also use secret %v for TLS termination", j.Ingress.Name, secretName)
+	j.Update(func(ing *extensions.Ingress) {
+		ing.Spec.TLS = append(ing.Spec.TLS, extensions.IngressTLS{Hosts: hosts, SecretName: secretName})
+	})
+	j.RootCAs[secretName] = cert
+}
+
+// SetHTTPS updates the ingress to use only this secret for these hosts.
+func (j *IngressTestJig) SetHTTPS(secretName string, hosts ...string) {
+	_, cert, _, err := createTLSSecret(j.Client, j.Ingress.Namespace, secretName, hosts...)
+	ExpectNoError(err)
+	j.Logger.Infof("Updating ingress %v to only use secret %v for TLS termination", j.Ingress.Name, secretName)
 	j.Update(func(ing *extensions.Ingress) {
 		ing.Spec.TLS = []extensions.IngressTLS{{Hosts: hosts, SecretName: secretName}}
 	})
-	j.RootCAs[secretName] = cert
+	j.RootCAs = map[string][]byte{secretName: cert}
+}
+
+// RemoveHTTPS updates the ingress to not use this secret for TLS.
+// Note: Does not delete the secret.
+func (j *IngressTestJig) RemoveHTTPS(secretName string) {
+	newTLS := []extensions.IngressTLS{}
+	for _, ingressTLS := range j.Ingress.Spec.TLS {
+		if secretName != ingressTLS.SecretName {
+			newTLS = append(newTLS, ingressTLS)
+		}
+	}
+	j.Logger.Infof("Updating ingress %v to not use secret %v for TLS termination", j.Ingress.Name, secretName)
+	j.Update(func(ing *extensions.Ingress) {
+		ing.Spec.TLS = newTLS
+	})
+	delete(j.RootCAs, secretName)
 }
 
 // PrepareTLSSecret creates a TLS secret and caches the cert.

@@ -109,6 +109,10 @@ NODE_IP_RANGE="$(get-node-ip-range)"
 
 RUNTIME_CONFIG="${KUBE_RUNTIME_CONFIG:-}"
 
+if [[ "${KUBE_FEATURE_GATES:-}" == "AllAlpha=true" ]]; then
+  RUNTIME_CONFIG="${KUBE_RUNTIME_CONFIG:-api/all=true}"
+fi
+
 # Optional: set feature gates
 FEATURE_GATES="${KUBE_FEATURE_GATES:-ExperimentalCriticalPodAnnotation=true}"
 
@@ -158,7 +162,7 @@ METADATA_AGENT_VERSION="${KUBE_METADATA_AGENT_VERSION:-0.2-0.0.19-1}"
 # Useful for scheduling heapster in large clusters with nodes of small size.
 HEAPSTER_MACHINE_TYPE="${HEAPSTER_MACHINE_TYPE:-}"
 
-# Set etcd image (e.g. k8s.gcr.io/etcd) and version (e.g. 3.1.12) if you need
+# Set etcd image (e.g. k8s.gcr.io/etcd) and version (e.g. 3.2.18-0) if you need
 # non-default version.
 ETCD_IMAGE="${TEST_ETCD_IMAGE:-}"
 ETCD_DOCKER_REPOSITORY="${TEST_ETCD_DOCKER_REPOSITORY:-}"
@@ -189,7 +193,7 @@ fi
 if [[ "${MASTER_OS_DISTRIBUTION}" == "gci" ]] || [[ "${MASTER_OS_DISTRIBUTION}" == "ubuntu" ]]; then
   MASTER_KUBELET_TEST_ARGS=" --experimental-kernel-memcg-notification=true"
 fi
-APISERVER_TEST_ARGS="${APISERVER_TEST_ARGS:-} --runtime-config=extensions/v1beta1 ${TEST_CLUSTER_DELETE_COLLECTION_WORKERS} ${TEST_CLUSTER_MAX_REQUESTS_INFLIGHT}"
+APISERVER_TEST_ARGS="${APISERVER_TEST_ARGS:-} --vmodule=httplog=3 --runtime-config=extensions/v1beta1 ${TEST_CLUSTER_DELETE_COLLECTION_WORKERS} ${TEST_CLUSTER_MAX_REQUESTS_INFLIGHT}"
 CONTROLLER_MANAGER_TEST_ARGS="${CONTROLLER_MANAGER_TEST_ARGS:-} ${TEST_CLUSTER_RESYNC_PERIOD} ${TEST_CLUSTER_API_CONTENT_TYPE}"
 SCHEDULER_TEST_ARGS="${SCHEDULER_TEST_ARGS:-} ${TEST_CLUSTER_API_CONTENT_TYPE}"
 KUBEPROXY_TEST_ARGS="${KUBEPROXY_TEST_ARGS:-} ${TEST_CLUSTER_API_CONTENT_TYPE}"

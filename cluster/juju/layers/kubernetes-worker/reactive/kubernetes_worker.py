@@ -85,22 +85,20 @@ def upgrade_charm():
     set_state('kubernetes-worker.restart-needed')
 
 
-def get_snap_resource_paths():
-    resources = ['kubectl', 'kubelet', 'kube-proxy']
-    return [hookenv.resource_get(resource) for resource in resources]
-
-
 def check_resources_for_upgrade_needed():
     hookenv.status_set('maintenance', 'Checking resources')
-    if any_file_changed(get_snap_resource_paths()):
+    resources = ['kubectl', 'kubelet', 'kube-proxy']
+    paths = [hookenv.resource_get(resource) for resource in resources]
+    if any_file_changed(paths):
         set_upgrade_needed()
 
 
 def set_upgrade_needed():
     set_state('kubernetes-worker.snaps.upgrade-needed')
     config = hookenv.config()
+    previous_channel = config.previous('channel')
     require_manual = config.get('require-manual-upgrade')
-    if not require_manual:
+    if previous_channel is None or not require_manual:
         set_state('kubernetes-worker.snaps.upgrade-specified')
 
 
@@ -136,34 +134,21 @@ def cleanup_pre_snap_services():
             os.remove(file)
 
 
-@when_not('kubernetes-worker.snap.resources-available')
-def check_snap_resources():
-    for path in get_snap_resource_paths():
-        if not path or not os.path.exists(path):
-            msg = 'Missing snap resources.'
-            hookenv.status_set('blocked', msg)
-            return
-    set_state('kubernetes-worker.snap.resources-available')
-    set_state('kubernetes-worker.snaps.upgrade-specified')
-
-
 @when('config.changed.channel')
 def channel_changed():
     set_upgrade_needed()
 
 
-@when('kubernetes-worker.snaps.upgrade-needed',
-      'kubernetes-worker.snap.resources-available')
+@when('kubernetes-worker.snaps.upgrade-needed')
 @when_not('kubernetes-worker.snaps.upgrade-specified')
 def upgrade_needed_status():
     msg = 'Needs manual upgrade, run the upgrade action'
     hookenv.status_set('blocked', msg)
 
 
-@when('kubernetes-worker.snap.resources-available',
-      'kubernetes-worker.snaps.upgrade-specified')
+@when('kubernetes-worker.snaps.upgrade-specified')
 def install_snaps():
-    any_file_changed(get_snap_resource_paths())
+    check_resources_for_upgrade_needed()
     channel = hookenv.config('channel')
     hookenv.status_set('maintenance', 'Installing kubectl snap')
     snap.install('kubectl', channel=channel, classic=True)
@@ -722,6 +707,9 @@ def launch_default_ingress_controller():
         if context['arch'] == 's390x':
             context['defaultbackend_image'] = \
                 "k8s.gcr.io/defaultbackend-s390x:1.4"
+        elif context['arch'] == 'arm64':
+            context['defaultbackend_image'] = \
+                "k8s.gcr.io/defaultbackend-arm64:1.4"
         else:
             context['defaultbackend_image'] = \
                 "k8s.gcr.io/defaultbackend:1.4"
@@ -745,6 +733,9 @@ def launch_default_ingress_controller():
         if context['arch'] == 's390x':
             context['ingress_image'] = \
                 "docker.io/cdkbot/nginx-ingress-controller-s390x:0.9.0-beta.13"
+        elif context['arch'] == 'arm64':
+            context['ingress_image'] = \
+                "gcr.io/google-containers/nginx-ingress-controller-arm64:0.9.0-beta.15" # noqa
         else:
             context['ingress_image'] = \
                 "k8s.gcr.io/nginx-ingress-controller:0.9.0-beta.15" # noqa
