@@ -85,7 +85,7 @@ network-name = my-network
 }
 
 func TestGetRegion(t *testing.T) {
-	zoneName := "us-central1-b"
+	zoneName := "asia-southeast1-a"
 	regionName, err := GetGCERegion(zoneName)
 	if err != nil {
 		t.Fatalf("unexpected error from GetGCERegion: %v", err)

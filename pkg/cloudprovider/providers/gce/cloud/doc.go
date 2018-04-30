@@ -27,7 +27,7 @@ limitations under the License.
 // Cloud can be used against the actual implementation "GCE" or "MockGCE".
 //
 //  func foo(cloud Cloud) {
-//    igs, err := cloud.InstanceGroups().List(ctx, "us-central1-b", filter.None)
+//    igs, err := cloud.InstanceGroups().List(ctx, "asia-southeast1-a", filter.None)
 //    ...
 //  }
 //  // Run foo against the actual cloud.

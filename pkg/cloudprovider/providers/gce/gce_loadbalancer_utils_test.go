@@ -67,7 +67,7 @@ func DefaultTestClusterValues() TestClusterValues {
 	return TestClusterValues{
 		ProjectID:         "test-project",
 		Region:            "us-central1",
-		ZoneName:          "us-central1-b",
+		ZoneName:          "asia-southeast1-a",
 		SecondaryZoneName: "us-central1-c",
 		ClusterID:         "test-cluster-id",
 		ClusterName:       "Test Cluster Name",

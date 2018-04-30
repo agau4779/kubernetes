@@ -39,8 +39,8 @@ func TestParseResourceURL(t *testing.T) {
 			&ResourceID{"some-gce-project", "regions", meta.GlobalKey("us-central1")},
 		},
 		{
-			"https://www.googleapis.com/compute/v1/projects/some-gce-project/zones/us-central1-b",
-			&ResourceID{"some-gce-project", "zones", meta.GlobalKey("us-central1-b")},
+			"https://www.googleapis.com/compute/v1/projects/some-gce-project/zones/asia-southeast1-a",
+			&ResourceID{"some-gce-project", "zones", meta.GlobalKey("asia-southeast1-a")},
 		},
 		{
 			"https://www.googleapis.com/compute/v1/projects/some-gce-project/global/operations/operation-1513289952196-56054460af5a0-b1dae0c3-9bbf9dbf",
@@ -75,8 +75,8 @@ func TestParseResourceURL(t *testing.T) {
 			&ResourceID{"some-gce-project", "regions", meta.GlobalKey("us-central1")},
 		},
 		{
-			"projects/some-gce-project/zones/us-central1-b",
-			&ResourceID{"some-gce-project", "zones", meta.GlobalKey("us-central1-b")},
+			"projects/some-gce-project/zones/asia-southeast1-a",
+			&ResourceID{"some-gce-project", "zones", meta.GlobalKey("asia-southeast1-a")},
 		},
 		{
 			"projects/some-gce-project/global/operations/operation-1513289952196-56054460af5a0-b1dae0c3-9bbf9dbf",
@@ -190,8 +190,8 @@ func TestSelfLink(t *testing.T) {
 			meta.VersionBeta,
 			"proj3",
 			"disks",
-			meta.ZonalKey("key2", "us-central1-b"),
-			"https://www.googleapis.com/compute/beta/projects/proj3/zones/us-central1-b/disks/key2",
+			meta.ZonalKey("key2", "asia-southeast1-a"),
+			"https://www.googleapis.com/compute/beta/projects/proj3/zones/asia-southeast1-a/disks/key2",
 		},
 		{
 			meta.VersionGA,

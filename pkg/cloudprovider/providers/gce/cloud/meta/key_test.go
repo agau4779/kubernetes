@@ -28,7 +28,7 @@ func TestKeyType(t *testing.T) {
 		want KeyType
 	}{
 		{GlobalKey("abc"), Global},
-		{ZonalKey("abc", "us-central1-b"), Zonal},
+		{ZonalKey("abc", "asia-southeast1-a"), Zonal},
 		{RegionalKey("abc", "us-central1"), Regional},
 	} {
 		if tc.key.Type() != tc.want {
@@ -43,7 +43,7 @@ func TestKeyString(t *testing.T) {
 	for _, k := range []*Key{
 		GlobalKey("abc"),
 		RegionalKey("abc", "us-central1"),
-		ZonalKey("abc", "us-central1-b"),
+		ZonalKey("abc", "asia-southeast1-a"),
 	} {
 		if k.String() == "" {
 			t.Errorf(`k.String() = "", want non-empty`)
@@ -55,7 +55,7 @@ func TestKeyValid(t *testing.T) {
 	t.Parallel()
 
 	region := "us-central1"
-	zone := "us-central1-b"
+	zone := "asia-southeast1-a"
 
 	for _, tc := range []struct {
 		key  *Key

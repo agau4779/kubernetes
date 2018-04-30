@@ -26885,7 +26885,7 @@
           "type": "string"
         },
         "hostType": {
-          "description": "Full or partial URL of the host type resource to use for this host, in the format: zones/zone/hostTypes/host-type. This is provided by the client when the host is created. For example, the following is a valid partial url to a predefined host type:\nzones/us-central1-b/hostTypes/n1-host-64-416",
+          "description": "Full or partial URL of the host type resource to use for this host, in the format: zones/zone/hostTypes/host-type. This is provided by the client when the host is created. For example, the following is a valid partial url to a predefined host type:\nzones/asia-southeast1-a/hostTypes/n1-host-64-416",
           "type": "string"
         },
         "id": {

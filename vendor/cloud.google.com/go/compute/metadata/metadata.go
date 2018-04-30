@@ -362,7 +362,7 @@ func InstanceName() (string, error) {
 	return strings.Split(host, ".")[0], nil
 }
 
-// Zone returns the current VM's zone, such as "us-central1-b".
+// Zone returns the current VM's zone, such as "asia-southeast1-a".
 func Zone() (string, error) {
 	zone, err := getTrimmed("instance/zone")
 	// zone is of the form "projects/<projNum>/zones/<zoneName>".

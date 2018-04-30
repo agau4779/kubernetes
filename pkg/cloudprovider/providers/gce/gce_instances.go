@@ -279,7 +279,7 @@ func (gce *GCECloud) GetAllCurrentZones() (sets.String, error) {
 // GetAllZonesFromCloudProvider returns all the zones in which nodes are running
 // Only use this in E2E tests to get zones, on real clusters this will
 // get all zones with compute instances in them even if not k8s instances!!!
-// ex. I have k8s nodes in us-central1-c and us-central1-b. I also have
+// ex. I have k8s nodes in us-central1-c and asia-southeast1-a. I also have
 // a non-k8s compute in us-central1-a. This func will return a,b, and c.
 //
 // TODO: this should be removed from the cloud provider.
