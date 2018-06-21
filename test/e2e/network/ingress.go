@@ -661,29 +661,28 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 				wait.Poll(10*time.Second, framework.NEGUpdateTimeout, func() (bool, error) {
-					svcList, err := f.ClientSet.CoreV1().Services(ns).List(metav1.ListOptions{})
+					svc, err := f.ClientSet.CoreV1().Services(ns).Get(name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					negs := sets.NewString()
-					for _, svc := range svcList.Items {
-						var status framework.NegStatus
-						// Wait for NEG sync loop to find NEGs
-						framework.Logf("Waiting for %v, got: %+v", framework.NEGStatusAnnotation, svc.Annotations)
-						v, ok := svc.Annotations[framework.NEGStatusAnnotation]
-						if !ok {
-							return false, nil
-						}
-						err := json.Unmarshal([]byte(v), &status)
-						if err != nil {
-							return false, nil
-						}
-						framework.Logf("Got %v: %v", framework.NEGStatusAnnotation, v)
-						if len(status.NetworkEndpointGroups) == 0 {
-							return false, nil
-						}
-						for _, neg := range status.NetworkEndpointGroups {
-							negs.Insert(neg)
-						}
+					var status framework.NegStatus
+					// Wait for NEG sync loop to find NEGs
+					framework.Logf("Waiting for %v, got: %+v", framework.NEGStatusAnnotation, svc.Annotations)
+					v, ok := svc.Annotations[framework.NEGStatusAnnotation]
+					if !ok {
+						return false, nil
+					}
+					err = json.Unmarshal([]byte(v), &status)
+					if err != nil {
+						framework.Logf("Error in parsing Expose NEG annotation: %v", err)
+						return false, nil
+					}
+					framework.Logf("Got %v: %v", framework.NEGStatusAnnotation, v)
+					if len(status.NetworkEndpointGroups) == 0 {
+						return false, nil
+					}
+					for _, neg := range status.NetworkEndpointGroups {
+						negs.Insert(neg)
 					}
 
 					gceCloud := gceController.Cloud.Provider.(*gcecloud.GCECloud)
