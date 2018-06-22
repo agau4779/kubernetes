@@ -123,7 +123,7 @@ const (
 
 	NEGAnnotation       = "cloud.google.com/neg"
 	NEGStatusAnnotation = "cloud.google.com/neg-status"
-	NEGUpdateTimeout    = 2 * time.Minute
+	NEGUpdateTimeout    = 10 * time.Minute
 
 	InstanceGroupAnnotation = "ingress.gcp.kubernetes.io/instance-groups"
 

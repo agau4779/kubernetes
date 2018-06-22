@@ -489,166 +489,166 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 			Expect(gceController.CleanupGCEIngressController()).NotTo(HaveOccurred())
 		})
 
-		It("should conform to Ingress spec", func() {
-			jig.PollInterval = 5 * time.Second
-			conformanceTests = framework.CreateIngressComformanceTests(jig, ns, map[string]string{
-				framework.NEGAnnotation: "true",
-			})
-			for _, t := range conformanceTests {
-				By(t.EntryLog)
-				t.Execute()
-				By(t.ExitLog)
-				jig.WaitForIngress(true)
-				usingNeg, err := gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
-				Expect(err).NotTo(HaveOccurred())
-				Expect(usingNeg).To(BeTrue())
-			}
-		})
-
-		It("should be able to switch between IG and NEG modes", func() {
-			var err error
-			By("Create a basic HTTP ingress using NEG")
-			jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "neg"), ns, map[string]string{}, map[string]string{})
-			jig.WaitForIngress(true)
-			usingNEG, err := gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(usingNEG).To(BeTrue())
-
-			By("Switch backend service to use IG")
-			svcList, err := f.ClientSet.CoreV1().Services(ns).List(metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			for _, svc := range svcList.Items {
-				svc.Annotations[framework.NEGAnnotation] = "false"
-				_, err = f.ClientSet.CoreV1().Services(ns).Update(&svc)
-				Expect(err).NotTo(HaveOccurred())
-			}
-			wait.Poll(5*time.Second, framework.LoadBalancerPollTimeout, func() (bool, error) {
-				return gceController.BackendServiceUsingIG(jig.GetServicePorts(true))
-			})
-			jig.WaitForIngress(true)
-
-			By("Switch backend service to use NEG")
-			svcList, err = f.ClientSet.CoreV1().Services(ns).List(metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			for _, svc := range svcList.Items {
-				svc.Annotations[framework.NEGAnnotation] = "true"
-				_, err = f.ClientSet.CoreV1().Services(ns).Update(&svc)
-				Expect(err).NotTo(HaveOccurred())
-			}
-			wait.Poll(5*time.Second, framework.LoadBalancerPollTimeout, func() (bool, error) {
-				return gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
-			})
-			jig.WaitForIngress(true)
-		})
-
-		It("should be able to create a ClusterIP service [Unreleased]", func() {
-			var err error
-			By("Create a basic HTTP ingress using NEG")
-			jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "neg-clusterip"), ns, map[string]string{}, map[string]string{})
-			jig.WaitForIngress(true)
-			svcPorts := jig.GetServicePorts(false)
-			usingNEG, err := gceController.BackendServiceUsingNEG(svcPorts)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(usingNEG).To(BeTrue())
-
-			// ClusterIP ServicePorts have no NodePort
-			for _, sp := range svcPorts {
-				Expect(sp.NodePort).To(Equal(int32(0)))
-			}
-		})
-
-		It("should sync endpoints to NEG", func() {
-			name := "hostname"
-			scaleAndValidateNEG := func(num int) {
-				scale, err := f.ClientSet.ExtensionsV1beta1().Deployments(ns).GetScale(name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				if scale.Spec.Replicas != int32(num) {
-					scale.Spec.Replicas = int32(num)
-					_, err = f.ClientSet.ExtensionsV1beta1().Deployments(ns).UpdateScale(name, scale)
-					Expect(err).NotTo(HaveOccurred())
-				}
-				wait.Poll(10*time.Second, framework.NEGUpdateTimeout, func() (bool, error) {
-					res, err := jig.GetDistinctResponseFromIngress()
-					if err != nil {
-						return false, nil
-					}
-					return res.Len() == num, nil
-				})
-			}
-
-			By("Create a basic HTTP ingress using NEG")
-			jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "neg"), ns, map[string]string{}, map[string]string{})
-			jig.WaitForIngress(true)
-			usingNEG, err := gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(usingNEG).To(BeTrue())
-			// initial replicas number is 1
-			scaleAndValidateNEG(1)
-
-			By("Scale up number of backends to 5")
-			scaleAndValidateNEG(5)
-
-			By("Scale down number of backends to 3")
-			scaleAndValidateNEG(3)
-
-			By("Scale up number of backends to 6")
-			scaleAndValidateNEG(6)
-
-			By("Scale down number of backends to 2")
-			scaleAndValidateNEG(3)
-		})
-
-		It("rolling update backend pods should not cause service disruption", func() {
-			name := "hostname"
-			replicas := 8
-			By("Create a basic HTTP ingress using NEG")
-			jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "neg"), ns, map[string]string{}, map[string]string{})
-			jig.WaitForIngress(true)
-			usingNEG, err := gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(usingNEG).To(BeTrue())
-
-			By(fmt.Sprintf("Scale backend replicas to %d", replicas))
-			scale, err := f.ClientSet.ExtensionsV1beta1().Deployments(ns).GetScale(name, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			scale.Spec.Replicas = int32(replicas)
-			_, err = f.ClientSet.ExtensionsV1beta1().Deployments(ns).UpdateScale(name, scale)
-			Expect(err).NotTo(HaveOccurred())
-			wait.Poll(10*time.Second, framework.LoadBalancerPollTimeout, func() (bool, error) {
-				res, err := jig.GetDistinctResponseFromIngress()
-				if err != nil {
-					return false, nil
-				}
-				return res.Len() == replicas, nil
-			})
-
-			By("Trigger rolling update and observe service disruption")
-			deploy, err := f.ClientSet.ExtensionsV1beta1().Deployments(ns).Get(name, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			// trigger by changing graceful termination period to 60 seconds
-			gracePeriod := int64(60)
-			deploy.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
-			_, err = f.ClientSet.ExtensionsV1beta1().Deployments(ns).Update(deploy)
-			Expect(err).NotTo(HaveOccurred())
-			wait.Poll(10*time.Second, framework.LoadBalancerPollTimeout, func() (bool, error) {
-				res, err := jig.GetDistinctResponseFromIngress()
-				Expect(err).NotTo(HaveOccurred())
-				deploy, err := f.ClientSet.ExtensionsV1beta1().Deployments(ns).Get(name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				if int(deploy.Status.UpdatedReplicas) == replicas {
-					if res.Len() == replicas {
-						return true, nil
-					} else {
-						framework.Logf("Expecting %d different responses, but got %d.", replicas, res.Len())
-						return false, nil
-					}
-
-				} else {
-					framework.Logf("Waiting for rolling update to finished. Keep sending traffic.")
-					return false, nil
-				}
-			})
-		})
+		// It("should conform to Ingress spec", func() {
+		// 	jig.PollInterval = 5 * time.Second
+		// 	conformanceTests = framework.CreateIngressComformanceTests(jig, ns, map[string]string{
+		// 		framework.NEGAnnotation: "true",
+		// 	})
+		// 	for _, t := range conformanceTests {
+		// 		By(t.EntryLog)
+		// 		t.Execute()
+		// 		By(t.ExitLog)
+		// 		jig.WaitForIngress(true)
+		// 		usingNeg, err := gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
+		// 		Expect(err).NotTo(HaveOccurred())
+		// 		Expect(usingNeg).To(BeTrue())
+		// 	}
+		// })
+		//
+		// It("should be able to switch between IG and NEG modes", func() {
+		// 	var err error
+		// 	By("Create a basic HTTP ingress using NEG")
+		// 	jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "neg"), ns, map[string]string{}, map[string]string{})
+		// 	jig.WaitForIngress(true)
+		// 	usingNEG, err := gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	Expect(usingNEG).To(BeTrue())
+		//
+		// 	By("Switch backend service to use IG")
+		// 	svcList, err := f.ClientSet.CoreV1().Services(ns).List(metav1.ListOptions{})
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	for _, svc := range svcList.Items {
+		// 		svc.Annotations[framework.NEGAnnotation] = "false"
+		// 		_, err = f.ClientSet.CoreV1().Services(ns).Update(&svc)
+		// 		Expect(err).NotTo(HaveOccurred())
+		// 	}
+		// 	wait.Poll(5*time.Second, framework.LoadBalancerPollTimeout, func() (bool, error) {
+		// 		return gceController.BackendServiceUsingIG(jig.GetServicePorts(true))
+		// 	})
+		// 	jig.WaitForIngress(true)
+		//
+		// 	By("Switch backend service to use NEG")
+		// 	svcList, err = f.ClientSet.CoreV1().Services(ns).List(metav1.ListOptions{})
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	for _, svc := range svcList.Items {
+		// 		svc.Annotations[framework.NEGAnnotation] = "true"
+		// 		_, err = f.ClientSet.CoreV1().Services(ns).Update(&svc)
+		// 		Expect(err).NotTo(HaveOccurred())
+		// 	}
+		// 	wait.Poll(5*time.Second, framework.LoadBalancerPollTimeout, func() (bool, error) {
+		// 		return gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
+		// 	})
+		// 	jig.WaitForIngress(true)
+		// })
+		//
+		// It("should be able to create a ClusterIP service [Unreleased]", func() {
+		// 	var err error
+		// 	By("Create a basic HTTP ingress using NEG")
+		// 	jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "neg-clusterip"), ns, map[string]string{}, map[string]string{})
+		// 	jig.WaitForIngress(true)
+		// 	svcPorts := jig.GetServicePorts(false)
+		// 	usingNEG, err := gceController.BackendServiceUsingNEG(svcPorts)
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	Expect(usingNEG).To(BeTrue())
+		//
+		// 	// ClusterIP ServicePorts have no NodePort
+		// 	for _, sp := range svcPorts {
+		// 		Expect(sp.NodePort).To(Equal(int32(0)))
+		// 	}
+		// })
+		//
+		// It("should sync endpoints to NEG", func() {
+		// 	name := "hostname"
+		// 	scaleAndValidateNEG := func(num int) {
+		// 		scale, err := f.ClientSet.ExtensionsV1beta1().Deployments(ns).GetScale(name, metav1.GetOptions{})
+		// 		Expect(err).NotTo(HaveOccurred())
+		// 		if scale.Spec.Replicas != int32(num) {
+		// 			scale.Spec.Replicas = int32(num)
+		// 			_, err = f.ClientSet.ExtensionsV1beta1().Deployments(ns).UpdateScale(name, scale)
+		// 			Expect(err).NotTo(HaveOccurred())
+		// 		}
+		// 		wait.Poll(10*time.Second, framework.NEGUpdateTimeout, func() (bool, error) {
+		// 			res, err := jig.GetDistinctResponseFromIngress()
+		// 			if err != nil {
+		// 				return false, nil
+		// 			}
+		// 			return res.Len() == num, nil
+		// 		})
+		// 	}
+		//
+		// 	By("Create a basic HTTP ingress using NEG")
+		// 	jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "neg"), ns, map[string]string{}, map[string]string{})
+		// 	jig.WaitForIngress(true)
+		// 	usingNEG, err := gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	Expect(usingNEG).To(BeTrue())
+		// 	// initial replicas number is 1
+		// 	scaleAndValidateNEG(1)
+		//
+		// 	By("Scale up number of backends to 5")
+		// 	scaleAndValidateNEG(5)
+		//
+		// 	By("Scale down number of backends to 3")
+		// 	scaleAndValidateNEG(3)
+		//
+		// 	By("Scale up number of backends to 6")
+		// 	scaleAndValidateNEG(6)
+		//
+		// 	By("Scale down number of backends to 2")
+		// 	scaleAndValidateNEG(3)
+		// })
+		//
+		// It("rolling update backend pods should not cause service disruption", func() {
+		// 	name := "hostname"
+		// 	replicas := 8
+		// 	By("Create a basic HTTP ingress using NEG")
+		// 	jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "neg"), ns, map[string]string{}, map[string]string{})
+		// 	jig.WaitForIngress(true)
+		// 	usingNEG, err := gceController.BackendServiceUsingNEG(jig.GetServicePorts(false))
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	Expect(usingNEG).To(BeTrue())
+		//
+		// 	By(fmt.Sprintf("Scale backend replicas to %d", replicas))
+		// 	scale, err := f.ClientSet.ExtensionsV1beta1().Deployments(ns).GetScale(name, metav1.GetOptions{})
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	scale.Spec.Replicas = int32(replicas)
+		// 	_, err = f.ClientSet.ExtensionsV1beta1().Deployments(ns).UpdateScale(name, scale)
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	wait.Poll(10*time.Second, framework.LoadBalancerPollTimeout, func() (bool, error) {
+		// 		res, err := jig.GetDistinctResponseFromIngress()
+		// 		if err != nil {
+		// 			return false, nil
+		// 		}
+		// 		return res.Len() == replicas, nil
+		// 	})
+		//
+		// 	By("Trigger rolling update and observe service disruption")
+		// 	deploy, err := f.ClientSet.ExtensionsV1beta1().Deployments(ns).Get(name, metav1.GetOptions{})
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	// trigger by changing graceful termination period to 60 seconds
+		// 	gracePeriod := int64(60)
+		// 	deploy.Spec.Template.Spec.TerminationGracePeriodSeconds = &gracePeriod
+		// 	_, err = f.ClientSet.ExtensionsV1beta1().Deployments(ns).Update(deploy)
+		// 	Expect(err).NotTo(HaveOccurred())
+		// 	wait.Poll(10*time.Second, framework.LoadBalancerPollTimeout, func() (bool, error) {
+		// 		res, err := jig.GetDistinctResponseFromIngress()
+		// 		Expect(err).NotTo(HaveOccurred())
+		// 		deploy, err := f.ClientSet.ExtensionsV1beta1().Deployments(ns).Get(name, metav1.GetOptions{})
+		// 		Expect(err).NotTo(HaveOccurred())
+		// 		if int(deploy.Status.UpdatedReplicas) == replicas {
+		// 			if res.Len() == replicas {
+		// 				return true, nil
+		// 			} else {
+		// 				framework.Logf("Expecting %d different responses, but got %d.", replicas, res.Len())
+		// 				return false, nil
+		// 			}
+		//
+		// 		} else {
+		// 			framework.Logf("Waiting for rolling update to finished. Keep sending traffic.")
+		// 			return false, nil
+		// 		}
+		// 	})
+		// })
 
 		It("should sync endpoints for both Ingress-referenced NEG and standalone NEG [Unreleased]", func() {
 			name := "hostname"
@@ -661,6 +661,8 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 				wait.Poll(10*time.Second, framework.NEGUpdateTimeout, func() (bool, error) {
+					gceCloud := gceController.Cloud.Provider.(*gcecloud.GCECloud)
+
 					svc, err := f.ClientSet.CoreV1().Services(ns).Get(name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
@@ -668,10 +670,13 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 					var status framework.NegStatus
 					// Wait for NEG sync loop to find NEGs
 					framework.Logf("Waiting for %v, got: %+v", framework.NEGStatusAnnotation, svc.Annotations)
+					framework.Logf("===============================0 %+v", svc)
 					v, ok := svc.Annotations[framework.NEGStatusAnnotation]
 					if !ok {
 						return false, nil
 					}
+
+					framework.Logf("===============================1")
 					err = json.Unmarshal([]byte(v), &status)
 					if err != nil {
 						framework.Logf("Error in parsing Expose NEG annotation: %v", err)
@@ -685,12 +690,17 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 						negs.Insert(neg)
 					}
 
-					gceCloud := gceController.Cloud.Provider.(*gcecloud.GCECloud)
+					framework.Logf("===============================2")
 					for _, neg := range negs.List() {
-						exposedNegs, err := gceCloud.ListNetworkEndpoints(neg, gceController.Cloud.Zone, false)
-						framework.Logf("ExposedNegs: %v, err: %v", exposedNegs, err)
+						_, err := gceCloud.GetNetworkEndpointGroup(neg, gceController.Cloud.Zone)
+						if err != nil {
+							return false, nil
+						}
+						framework.Logf("===============================3")
+						endpoints, err := gceCloud.ListNetworkEndpoints(neg, gceController.Cloud.Zone, false)
+						framework.Logf("ExposedNegs: %v, err: %v", endpoints, err)
 						Expect(err).NotTo(HaveOccurred())
-						if len(exposedNegs) != num {
+						if len(endpoints) != num {
 							return false, nil
 						}
 					}
