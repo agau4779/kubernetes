@@ -478,15 +478,15 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 			if CurrentGinkgoTestDescription().Failed {
 				framework.DescribeIng(ns)
 			}
-			if jig.Ingress == nil {
-				By("No ingress created, no cleanup necessary")
-				return
-			}
-			By("Deleting ingress")
-			jig.TryDeleteIngress()
-
-			By("Cleaning up cloud resources")
-			Expect(gceController.CleanupGCEIngressController()).NotTo(HaveOccurred())
+			// if jig.Ingress == nil {
+			// 	By("No ingress created, no cleanup necessary")
+			// 	return
+			// }
+			// By("Deleting ingress")
+			// jig.TryDeleteIngress()
+			//
+			// By("Cleaning up cloud resources")
+			// Expect(gceController.CleanupGCEIngressController()).NotTo(HaveOccurred())
 		})
 
 		// It("should conform to Ingress spec", func() {
