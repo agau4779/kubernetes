@@ -1,0 +1,105 @@
+flag provided but not defined: -build
+Usage of /tmp/go-build871748352/b001/exe/e2e:
+  -get
+    	go get -u kubetest if old or not installed (default true)
+  -old duration
+    	Consider kubetest old if it exceeds this (default 24h0m0s)
+  -v	this flag is translated to kubetest's --verbose-commands (default true)
+2018/06/22 09:32:42 e2e.go:56: NOTICE: go run hack/e2e.go is now a shim for test-infra/kubetest
+2018/06/22 09:32:42 e2e.go:57:   Usage: go run hack/e2e.go [--get=true] [--old=24h0m0s] -- [KUBETEST_ARGS]
+2018/06/22 09:32:42 e2e.go:58:   The separator is required to use --get or --old flags
+2018/06/22 09:32:42 e2e.go:59:   The -- flag separator also suppresses this message
+2018/06/22 09:32:42 e2e.go:153: The kubetest binary is older than 24h0m0s.
+2018/06/22 09:32:42 e2e.go:158: Updating kubetest binary...
+2018/06/22 09:33:32 e2e.go:79: Calling kubetest --build --test --test_args=--ginkgo.focus=\[Feature:NEG\]...
+2018/06/22 09:33:33 process.go:153: Running: make -C /home/gau/go/src/k8s.io/kubernetes quick-release
+make: Entering directory '/home/gau/go/src/k8s.io/kubernetes'
++++ [0622 09:33:33] Verifying Prerequisites....
++++ [0622 09:33:33] Building Docker image kube-build:build-0c45ce137b-5-v1.10.2-1
++++ [0622 09:37:24] Creating data container kube-build-data-0c45ce137b-5-v1.10.2-1
++++ [0622 09:38:05] Syncing sources to container
++++ [0622 09:38:10] Running build command...
++++ [0622 09:38:21] Building go targets for linux/amd64:
+    ./vendor/k8s.io/code-generator/cmd/deepcopy-gen
++++ [0622 09:38:30] Building go targets for linux/amd64:
+    ./vendor/k8s.io/code-generator/cmd/defaulter-gen
++++ [0622 09:38:36] Building go targets for linux/amd64:
+    ./vendor/k8s.io/code-generator/cmd/conversion-gen
++++ [0622 09:38:47] Building go targets for linux/amd64:
+    ./vendor/k8s.io/code-generator/cmd/openapi-gen
++++ [0622 09:38:55] Building go targets for linux/amd64:
+    ./vendor/github.com/jteeuwen/go-bindata/go-bindata
++++ [0622 09:38:56] Building go targets for linux/amd64:
+    cmd/kube-proxy
+    cmd/kube-apiserver
+    cmd/kube-controller-manager
+    cmd/cloud-controller-manager
+    cmd/kubelet
+    cmd/kubeadm
+    cmd/hyperkube
+    cmd/kube-scheduler
+    vendor/k8s.io/kube-aggregator
+    vendor/k8s.io/apiextensions-apiserver
+    cluster/gce/gci/mounter
++++ [0622 09:44:53] Building go targets for linux/amd64:
+    cmd/kube-proxy
+    cmd/kubeadm
+    cmd/kubelet
++++ [0622 09:45:24] Building go targets for linux/amd64:
+    cmd/kubectl
++++ [0622 09:45:45] Building go targets for linux/amd64:
+    cmd/gendocs
+    cmd/genkubedocs
+    cmd/genman
+    cmd/genyaml
+    cmd/genswaggertypedocs
+    cmd/linkcheck
+    vendor/github.com/onsi/ginkgo/ginkgo
+    test/e2e/e2e.test
++++ [0622 09:47:24] Building go targets for linux/amd64:
+    cmd/kubemark
+    vendor/github.com/onsi/ginkgo/ginkgo
+    test/e2e_node/e2e_node.test
++++ [0622 09:48:55] Syncing out of container
++++ [0622 09:51:51] Building tarball: src
++++ [0622 09:51:51] Building tarball: manifests
++++ [0622 09:51:51] Starting tarball: client linux-amd64
++++ [0622 09:51:51] Waiting on tarballs
+tar: ./pkg/master/localhost\:33685719181236466370: socket ignored
+tar: ./pkg/master/127.0.0.1\:21002176207: socket ignored
+tar: ./pkg/master/localhost\:4328224429537337173: socket ignored
+tar: ./pkg/master/127.0.0.1\:21001113409: socket ignored
+tar: ./pkg/master/localhost\:43282244295373371730: socket ignored
+tar: ./pkg/master/127.0.0.1\:21001176207: socket ignored
+tar: ./pkg/master/127.0.0.1\:21002113409: socket ignored
+tar: ./pkg/master/localhost\:3368571918123646637: socket ignored
++++ [0622 09:52:08] Building tarball: server linux-amd64
++++ [0622 09:52:08] Building tarball: node linux-amd64
++++ [0622 09:52:20] Starting docker build for image: cloud-controller-manager-amd64
++++ [0622 09:52:20] Starting docker build for image: kube-apiserver-amd64
++++ [0622 09:52:20] Starting docker build for image: kube-controller-manager-amd64
++++ [0622 09:52:20] Starting docker build for image: kube-scheduler-amd64
++++ [0622 09:52:20] Starting docker build for image: kube-aggregator-amd64
++++ [0622 09:52:20] Starting docker build for image: kube-proxy-amd64
++++ [0622 09:52:20] Building hyperkube image for arch: amd64
++++ [0622 09:55:25] Deleting docker image k8s.gcr.io/kube-aggregator:v1.12.0-alpha.0.1244_9d2d9a09bad821-dirty
++++ [0622 09:55:25] Deleting docker image k8s.gcr.io/kube-scheduler:v1.12.0-alpha.0.1244_9d2d9a09bad821-dirty
++++ [0622 09:56:23] Deleting docker image k8s.gcr.io/cloud-controller-manager:v1.12.0-alpha.0.1244_9d2d9a09bad821-dirty
++++ [0622 09:56:23] Deleting docker image k8s.gcr.io/kube-controller-manager:v1.12.0-alpha.0.1244_9d2d9a09bad821-dirty
++++ [0622 09:56:24] Deleting docker image k8s.gcr.io/kube-proxy:v1.12.0-alpha.0.1244_9d2d9a09bad821-dirty
++++ [0622 09:56:24] Deleting docker image k8s.gcr.io/kube-apiserver:v1.12.0-alpha.0.1244_9d2d9a09bad821-dirty
++++ [0622 09:57:37] Deleting hyperkube image k8s.gcr.io/hyperkube-amd64:v1.12.0-alpha.0.1244_9d2d9a09bad821-dirty
++++ [0622 09:57:37] Docker builds done
++++ [0622 09:58:44] Building tarball: final
++++ [0622 09:58:44] Building tarball: test
+make: Leaving directory '/home/gau/go/src/k8s.io/kubernetes'
+2018/06/22 09:59:56 process.go:155: Step 'make -C /home/gau/go/src/k8s.io/kubernetes quick-release' finished in 26m23.619089854s
+2018/06/22 09:59:56 process.go:153: Running: ./hack/e2e-internal/e2e-status.sh
+Project: gau-gke-dev
+Network Project: gau-gke-dev
+Zone: asia-southeast1-a
+error: couldn't read version from server: Get http://localhost:8080/version?timeout=32s: dial tcp [::1]:8080: connect: connection refused
+2018/06/22 09:59:57 process.go:155: Step './hack/e2e-internal/e2e-status.sh' finished in 1.051300273s
+2018/06/22 09:59:57 main.go:309: Something went wrong: encountered 1 errors: [error during ./hack/e2e-internal/e2e-status.sh: exit status 1]
+2018/06/22 09:59:57 e2e.go:81: err: exit status 1
+exit status 1

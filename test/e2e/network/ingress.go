@@ -698,13 +698,14 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 						}
 						framework.Logf("===============================3")
 						endpoints, err := gceCloud.ListNetworkEndpoints(neg, gceController.Cloud.Zone, false)
-						framework.Logf("ExposedNegs: %v, err: %v", endpoints, err)
+						framework.Logf("%v ExposedNegs: %+v, err: %v", len(endpoints), endpoints, err)
 						Expect(err).NotTo(HaveOccurred())
 						if len(endpoints) != num {
 							return false, nil
 						}
 					}
 
+					framework.Logf("===============================4")
 					return len(negs.List()) > 0, nil
 				})
 			}
