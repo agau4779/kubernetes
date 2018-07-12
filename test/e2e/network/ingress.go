@@ -424,7 +424,7 @@ var _ = SIGDescribe("Loadbalancing: L7", func() {
 			jig.CreateIngress(filepath.Join(framework.IngressManifestPath, "http2"), ns, map[string]string{}, map[string]string{})
 			jig.WaitForIngress(true)
 
-			address, err := jig.WaitForIngressAddress(jig.Client, jig.Ingress.Namespace, jig.Ingress.Name, framework.LoadBalancerPollTimeout)
+			address, _ := jig.WaitForIngressAddress(jig.Client, jig.Ingress.Namespace, jig.Ingress.Name, framework.LoadBalancerPollTimeout)
 
 			By(fmt.Sprintf("Polling on address %s and verify the backend is serving HTTP2", address))
 			detectHttpVersionAndSchemeTest(f, jig, address, "request_version=2", httpsScheme)
