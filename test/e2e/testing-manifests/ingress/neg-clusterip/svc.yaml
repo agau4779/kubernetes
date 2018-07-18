@@ -3,12 +3,26 @@ kind: Service
 metadata:
   name: hostname
   annotations:
-    cloud.google.com/neg: '{"ingress":true}'
+  annotations:
+    cloud.google.com/neg: '{"ingress":true,"exposed_ports":{"500":{},"999":{}}}'
 spec:
   ports:
   - port: 80
+    name: host1
     protocol: TCP
-    targetPort: 9376
+    targetPort: 8080
+  - port: 443
+    name: host2
+    protocol: TCP
+    targetPort: 8443
+  - port: 500
+    name: host3
+    protocol: TCP
+    targetPort: 8500
+  - port: 999
+    name: host4
+    protocol: TCP
+    targetPort: 8999
   selector:
     run: hostname
   sessionAffinity: None
